@@ -1,52 +1,59 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { v4 as uuidv4 } from 'uuid';
 
 export default function AddSubjectScreen({ navigation }) {
   const [name, setName] = useState('');
-  const [attended, setAttended] = useState('');
-  const [total, setTotal] = useState('');
 
   const handleSave = async () => {
-    if (!name || !attended || !total) {
-      Alert.alert('All fields are required');
+    if (!name.trim()) {
+      Alert.alert('Subject name is required!');
       return;
     }
 
     const newSubject = {
-      id: uuidv4(),
-      name,
-      attended: parseInt(attended),
-      total: parseInt(total),
+      id: Date.now().toString(), // ✅ simpler ID method
+      name: name.trim(),
+      attendance: {}, // For storing attendance by date later
     };
 
-    const existing = await AsyncStorage.getItem('subjects');
-    const subjects = existing ? JSON.parse(existing) : [];
-    subjects.push(newSubject);
-    await AsyncStorage.setItem('subjects', JSON.stringify(subjects));
-    navigation.goBack();
+    try {
+      const existing = await AsyncStorage.getItem('subjects');
+      const subjects = existing ? JSON.parse(existing) : [];
+      subjects.push(newSubject);
+      await AsyncStorage.setItem('subjects', JSON.stringify(subjects));
+
+      const check = await AsyncStorage.getItem('subjects');
+      console.log('✅ After Save:', check);
+
+      navigation.goBack();
+    } catch (error) {
+      console.error('❌ Save error:', error);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text>Subject Name:</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} />
-      <Text>Attended:</Text>
-      <TextInput style={styles.input} value={attended} onChangeText={setAttended} keyboardType="numeric" />
-      <Text>Total:</Text>
-      <TextInput style={styles.input} value={total} onChangeText={setTotal} keyboardType="numeric" />
-      <Button title="Save" onPress={handleSave} />
+      <Text style={styles.label}>Subject Name:</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="e.g., Chemistry"
+        value={name}
+        onChangeText={setName}
+      />
+      <Button title="Save Subject" onPress={handleSave} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  label: { fontSize: 18, marginBottom: 10 },
   input: {
     borderWidth: 1,
-    marginVertical: 8,
-    padding: 8,
+    borderColor: '#ccc',
+    padding: 10,
+    marginBottom: 20,
     borderRadius: 6,
   },
 });

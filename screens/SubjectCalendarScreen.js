@@ -1,84 +1,92 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
-import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AttendanceCircle from '../components/AttendanceCircle';
+import { Calendar } from 'react-native-calendars';
 
-export default function SubjectCalendarScreen({ route, navigation }) {
+export default function SubjectCalendarScreen({ route }) {
   const { subjectId } = route.params;
   const [subject, setSubject] = useState(null);
-  const [calendarData, setCalendarData] = useState({});
 
   useEffect(() => {
     loadSubject();
   }, []);
 
   const loadSubject = async () => {
-    const subjects = JSON.parse(await AsyncStorage.getItem('subjects')) || [];
-    const found = subjects.find((s) => s.id === subjectId);
-    if (!found) {
-      Alert.alert('Subject not found');
-      navigation.goBack();
-      return;
+    const data = await AsyncStorage.getItem('subjects');
+    if (!data) return;
+
+    const allSubjects = JSON.parse(data);
+    const found = allSubjects.find((s) => s.id === subjectId);
+    if (found) {
+      setSubject(found);
     }
-    setSubject(found);
-    setCalendarData(found.calendar || {});
   };
 
-  const handleDayPress = async (day) => {
-    const date = day.dateString;
-    let updated = { ...calendarData };
+  const toggleAttendance = async (date) => {
+    const updatedAttendance = {
+      ...subject.attendance,
+      [date]: !subject.attendance?.[date],
+    };
 
-    if (!updated[date]) {
-      updated[date] = { marked: true, dotColor: 'green', status: 'attended' };
-    } else if (updated[date].status === 'attended') {
-      updated[date] = { marked: true, dotColor: 'red', status: 'missed' };
-    } else {
-      delete updated[date];
-    }
+    const updatedSubject = { ...subject, attendance: updatedAttendance };
 
-    setCalendarData(updated);
-
-    // Update AsyncStorage
-    const all = JSON.parse(await AsyncStorage.getItem('subjects')) || [];
-    const updatedSubjects = all.map((s) =>
-      s.id === subjectId ? { ...s, calendar: updated } : s
+    // Update in storage
+    const data = await AsyncStorage.getItem('subjects');
+    const allSubjects = JSON.parse(data);
+    const updatedSubjects = allSubjects.map((s) =>
+      s.id === subjectId ? updatedSubject : s
     );
+
     await AsyncStorage.setItem('subjects', JSON.stringify(updatedSubjects));
+    setSubject(updatedSubject);
   };
 
-  const getStats = () => {
-    let attended = 0,
-      missed = 0;
-    Object.values(calendarData).forEach((d) => {
-      if (d.status === 'attended') attended++;
-      else if (d.status === 'missed') missed++;
+  const getMarkedDates = () => {
+    const marks = {};
+    if (!subject?.attendance) return marks;
+
+    Object.entries(subject.attendance).forEach(([date, attended]) => {
+      marks[date] = {
+        selected: true,
+        selectedColor: attended ? 'green' : 'red',
+      };
     });
-    const total = attended + missed;
-    const percentage = total ? ((attended / total) * 100).toFixed(1) : 0;
-    return { attended, missed, total, percentage };
+
+    return marks;
   };
 
-  const stats = getStats();
+  const getSummary = () => {
+    const entries = Object.values(subject?.attendance || {});
+    const attended = entries.filter((a) => a === true).length;
+    const total = entries.length;
+    const percent = total > 0 ? Math.round((attended / total) * 100) : 0;
+    return { attended, total, percent };
+  };
+
+  if (!subject) return <Text>Loading...</Text>;
+
+  const summary = getSummary();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{subject?.name}</Text>
-      <AttendanceCircle percentage={stats.percentage} />
-      <Calendar
-        markedDates={calendarData}
-        onDayPress={handleDayPress}
-        markingType="dot"
-      />
-      <Text style={styles.info}>
-        ✅ Attended: {stats.attended} | ❌ Missed: {stats.missed}
+      <Text style={styles.title}>{subject.name}</Text>
+      <Text style={styles.summary}>
+        {summary.attended} / {summary.total} ({summary.percent}%)
       </Text>
+      <Calendar
+        onDayPress={(day) => toggleAttendance(day.dateString)}
+        markedDates={getMarkedDates()}
+      />
+      {summary.percent < 75 && summary.total > 0 && (
+        <Text style={styles.warning}>⚠️ Attendance is below 75%</Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  title: { fontSize: 24, textAlign: 'center', marginBottom: 10 },
-  info: { textAlign: 'center', marginTop: 10 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 12 },
+  summary: { fontSize: 18, marginBottom: 10 },
+  warning: { color: 'red', marginTop: 10, fontWeight: 'bold' },
 });
