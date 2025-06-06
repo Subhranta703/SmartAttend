@@ -20,10 +20,12 @@
     "react-native": "0.79.2",
     "react-native-calendars": "^1.1312.1",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-paper": "^5.14.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-svg": "^7.2.1",
     "react-native-svg-charts": "^5.4.0",
+    "react-native-vector-icons": "^10.2.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
